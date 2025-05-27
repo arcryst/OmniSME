@@ -1,41 +1,24 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Layout } from './components/layout/Layout'
+import { Button } from './components/ui/Button'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      {/* Tailwind CSS demo section */}
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <h1 className="text-4xl font-bold text-blue-600">
-          OmniSME Platform
+    <Layout>
+      <div className="max-w-4xl">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">
+          Dashboard
         </h1>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Welcome to OmniSME</h2>
+          <p className="text-gray-600 mb-4">
+            Your integrated business management platform for Canadian SMEs.
+          </p>
+          <Button onClick={() => alert('Dashboard feature coming soon!')}>
+            Get Started
+          </Button>
+        </div>
       </div>
-      {/* ...existing Vite/React demo code... */}
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </Layout>
   )
 }
 
