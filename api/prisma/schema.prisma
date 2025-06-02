@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  users     User[]
+  software  Software[]
+  licenses  License[]
+  requests  Request[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  role           UserRole     @default(USER)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  managedUsers   User[]       @relation("ManagerToUser")
+  manager        User?        @relation("ManagerToUser", fields: [managerId], references: [id])
+  managerId      String?
+  
+  licenses       License[]
+  requests       Request[]
+  approvals      Approval[]
+}
+
+model Software {
+  id              String       @id @default(cuid())
+  name            String
+  description     String?
+  category        String
+  vendor          String?
+  costPerLicense  Float?
+  billingCycle    BillingCycle @default(MONTHLY)
+  logoUrl         String?
+  websiteUrl      String?
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  requiresApproval Boolean     @default(true)
+  autoProvision   Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  licenses        License[]
+  requests        Request[]
+}
+
+model License {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  softwareId     String
+  software       Software     @relation(fields: [softwareId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  status         LicenseStatus @default(ACTIVE)
+  assignedAt     DateTime     @default(now())
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  notes          String?
+  
+  @@unique([userId, softwareId])
+}
+
+model Request {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  softwareId     String
+  software       Software     @relation(fields: [softwareId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  justification  String
+  status         RequestStatus @default(PENDING)
+  priority       Priority      @default(MEDIUM)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  approvals      Approval[]
+}
+
+model Approval {
+  id         String   @id @default(cuid())
+  requestId  String
+  request    Request  @relation(fields: [requestId], references: [id])
+  approverId String
+  approver   User     @relation(fields: [approverId], references: [id])
+  status     ApprovalStatus
+  comments   String?
+  createdAt  DateTime @default(now())
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum LicenseStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  APPROVED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
