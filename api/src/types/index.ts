@@ -1,4 +1,4 @@
-import { User, Organization, Software, License, Request } from '@prisma/client';
+import { User, Organization, Software, License, Request as PrismaRequest, Approval } from '@prisma/client';
 
 // API Response types
 export interface ApiResponse<T = any> {

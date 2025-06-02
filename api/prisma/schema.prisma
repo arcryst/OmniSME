@@ -8,16 +8,15 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  domain    String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  users     User[]
-  software  Software[]
+  domain    String?    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   licenses  License[]
   requests  Request[]
+  software  Software[]
+  users     User[]
 }
 
 model User {
@@ -28,83 +27,79 @@ model User {
   lastName       String
   role           UserRole     @default(USER)
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  
-  managedUsers   User[]       @relation("ManagerToUser")
-  manager        User?        @relation("ManagerToUser", fields: [managerId], references: [id])
   managerId      String?
-  
+  approvals      Approval[]
   licenses       License[]
   requests       Request[]
-  approvals      Approval[]
+  manager        User?        @relation("ManagerToUser", fields: [managerId], references: [id])
+  managedUsers   User[]       @relation("ManagerToUser")
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }
 
 model Software {
-  id              String       @id @default(cuid())
-  name            String
-  description     String?
-  category        String
-  vendor          String?
-  costPerLicense  Float?
-  billingCycle    BillingCycle @default(MONTHLY)
-  logoUrl         String?
-  websiteUrl      String?
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  requiresApproval Boolean     @default(true)
-  autoProvision   Boolean      @default(false)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  licenses        License[]
-  requests        Request[]
+  id               String       @id @default(cuid())
+  name             String
+  description      String?
+  category         String
+  vendor           String?
+  costPerLicense   Float?
+  billingCycle     BillingCycle @default(MONTHLY)
+  logoUrl          String?
+  websiteUrl       String?
+  organizationId   String
+  requiresApproval Boolean      @default(true)
+  autoProvision    Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  licenses         License[]
+  requests         Request[]
+  organization     Organization @relation(fields: [organizationId], references: [id])
 }
 
 model License {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
   softwareId     String
-  software       Software     @relation(fields: [softwareId], references: [id])
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   status         LicenseStatus @default(ACTIVE)
-  assignedAt     DateTime     @default(now())
+  assignedAt     DateTime      @default(now())
   expiresAt      DateTime?
   lastUsedAt     DateTime?
   notes          String?
-  
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  software       Software      @relation(fields: [softwareId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+
   @@unique([userId, softwareId])
 }
 
 model Request {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
   softwareId     String
-  software       Software     @relation(fields: [softwareId], references: [id])
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   justification  String
   status         RequestStatus @default(PENDING)
   priority       Priority      @default(MEDIUM)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   approvals      Approval[]
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  software       Software      @relation(fields: [softwareId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
 }
 
 model Approval {
-  id         String   @id @default(cuid())
+  id         String         @id @default(cuid())
   requestId  String
-  request    Request  @relation(fields: [requestId], references: [id])
   approverId String
-  approver   User     @relation(fields: [approverId], references: [id])
   status     ApprovalStatus
   comments   String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime       @default(now())
+  approver   User           @relation(fields: [approverId], references: [id])
+  request    Request        @relation(fields: [requestId], references: [id])
 }
 
 enum UserRole {
