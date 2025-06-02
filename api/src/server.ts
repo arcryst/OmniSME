@@ -14,6 +14,9 @@ dotenv.config();
 
 // Import routes
 import authRoutes from './routes/auth';
+import softwareRoutes from './routes/software';
+import requestRoutes from './routes/requests';
+import licenseRoutes from './routes/licenses';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,9 +42,9 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/software', softwareRoutes);
-// app.use('/api/requests', requestRoutes);
-// app.use('/api/licenses', licenseRoutes);
+app.use('/api/software', softwareRoutes);
+app.use('/api/requests', requestRoutes);
+app.use('/api/licenses', licenseRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

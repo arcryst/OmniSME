@@ -4,92 +4,128 @@ export interface User {
     email: string;
     firstName: string;
     lastName: string;
-    role: 'ADMIN' | 'MANAGER' | 'USER';
+    role: string;
+    organizationId: string;
+}
+
+export interface Organization {
+    id: string;
+    name: string;
+    domain: string;
+}
+
+export interface LoginCredentials {
+    email: string;
+    password: string;
+}
+
+export interface RegisterData extends LoginCredentials {
+    firstName: string;
+    lastName: string;
+    organizationName: string;
+}
+
+export interface AuthResponse {
+    message: string;
+    token: string;
+    user: User;
     organization?: Organization;
-  }
-  
-  export interface Organization {
+}
+
+// API Response types
+export interface ApiResponse<T = unknown> {
+    data?: T;
+    error?: string;
+    message?: string;
+}
+
+// Software types
+export interface Software {
     id: string;
     name: string;
-    domain: string | null;
-  }
-  
-  // Software types
-  export interface Software {
-    id: string;
-    name: string;
-    description: string | null;
+    description?: string;
     category: string;
-    vendor: string | null;
-    costPerLicense: number | null;
-    billingCycle: 'MONTHLY' | 'YEARLY' | 'ONE_TIME';
-    logoUrl: string | null;
-    websiteUrl: string | null;
+    vendor?: string;
+    costPerLicense?: number;
+    billingCycle?: 'MONTHLY' | 'YEARLY' | 'ONE_TIME';
+    logoUrl?: string;
+    websiteUrl?: string;
     requiresApproval: boolean;
     autoProvision: boolean;
-    createdAt: string;
-    updatedAt: string;
-    // Added by API
+    organizationId: string;
     userLicense?: License | null;
     hasPendingRequest?: boolean;
     _count?: {
-      licenses: number;
-      requests: number;
+        licenses: number;
+        requests: number;
     };
-  }
-  
-  export interface License {
+}
+
+export interface License {
     id: string;
     userId: string;
     softwareId: string;
+    organizationId: string;
     status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
     assignedAt: string;
-    expiresAt: string | null;
-    lastUsedAt: string | null;
+    expiresAt?: string;
+    lastUsedAt?: string;
+    notes?: string;
     software?: Software;
-  }
-  
-  export interface LicenseRequest {
+}
+
+export interface LicenseRequest {
     id: string;
     userId: string;
     softwareId: string;
-    justification: string;
+    organizationId: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    justification: string;
     createdAt: string;
-    updatedAt: string;
     software?: Software;
-    user?: User;
     approvals?: Approval[];
-  }
-  
-  export interface Approval {
+}
+
+export interface Approval {
     id: string;
     requestId: string;
     approverId: string;
     status: 'APPROVED' | 'REJECTED';
-    comments: string | null;
+    comments?: string;
     createdAt: string;
-    approver?: User;
-  }
-  
-  // API types
-  export interface PaginatedResponse<T> {
+    approver?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+    };
+}
+
+export interface CreateLicenseRequestData {
+    softwareId: string;
+    justification: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+}
+
+// Pagination types
+export interface PaginationParams {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginatedResponse<T> {
     items: T[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
-  }
-  
-  export interface ApiError {
+}
+
+// API types
+export interface ApiError {
     error: string;
     message?: string;
-  }
-  
-  // Request types
-  export interface CreateLicenseRequestData {
-    softwareId: string;
-    justification: string;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  }
+}
