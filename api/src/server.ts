@@ -4,6 +4,11 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
+interface ApiError extends Error {
+  status?: number;
+  stack?: string;
+}
+
 // Load environment variables
 dotenv.config();
 
@@ -44,7 +49,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: ApiError, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   
   const status = err.status || 500;

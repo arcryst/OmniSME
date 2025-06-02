@@ -1,8 +1,7 @@
-import jwt from 'jsonwebtoken';
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-this';
-const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 
 export const hashPassword = async (password: string): Promise<string> => {
   return bcrypt.hash(password, 10);
@@ -34,7 +33,7 @@ export const generateToken = (user: UserForToken): string => {
     role: user.role,
   };
   
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRE });
+  return jwt.sign(payload, JWT_SECRET as Secret, { expiresIn: '7d' });
 };
 
 export const verifyToken = (token: string): TokenPayload => {

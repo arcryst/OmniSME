@@ -1,19 +1,13 @@
-import { Router, Request } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { PrismaClient } from '@prisma/client';
-import { hashPassword, verifyPassword, generateToken, TokenPayload } from '../utils/auth';
+import { prisma } from '../lib/prisma';
+import { hashPassword, verifyPassword, generateToken } from '../utils/auth';
 import { authenticate } from '../middleware/auth';
 
-// Extend Request type to include user property
-interface AuthenticatedRequest extends Request {
-  user: TokenPayload;
-}
-
-const router = Router();
-const prisma = new PrismaClient();
+const router = express.Router();
 
 // Validation middleware
-const handleValidationErrors = (req: Request, res: any, next: any): void => {
+const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     res.status(400).json({ errors: errors.array() });
@@ -32,7 +26,7 @@ router.post('/register',
     body('organizationName').notEmpty().trim(),
   ],
   handleValidationErrors,
-  async (req: Request, res: any) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const { email, password, firstName, lastName, organizationName } = req.body;
 
@@ -47,7 +41,7 @@ router.post('/register',
       }
 
       // Create organization and user in a transaction
-      const result = await prisma.$transaction(async (tx: PrismaClient) => {
+      const result = await prisma.$transaction(async (tx) => {
         // Create organization
         const organization = await tx.organization.create({
           data: {
@@ -79,7 +73,12 @@ router.post('/register',
         return { user, organization };
       });
 
-      const token = generateToken(result.user);
+      const token = generateToken({
+        id: result.user.id,
+        email: result.user.email,
+        organizationId: result.user.organizationId,
+        role: result.user.role,
+      });
 
       res.status(201).json({
         message: 'Registration successful',
@@ -101,7 +100,7 @@ router.post('/login',
     body('password').notEmpty(),
   ],
   handleValidationErrors,
-  async (req: Request, res: any) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const { email, password } = req.body;
 
@@ -125,7 +124,12 @@ router.post('/login',
         return;
       }
 
-      const token = generateToken(user);
+      const token = generateToken({
+        id: user.id,
+        email: user.email,
+        organizationId: user.organizationId,
+        role: user.role,
+      });
 
       res.json({
         message: 'Login successful',
@@ -147,8 +151,13 @@ router.post('/login',
 );
 
 // Get current user
-router.get('/me', authenticate, async (req: AuthenticatedRequest, res: any) => {
+router.get('/me', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       select: {
