@@ -1,16 +1,14 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
+// Load environment variables
 dotenv.config();
 
-// Custom error interface for typed error handling
-interface ApiError extends Error {
-  status?: number;
-  stack?: string;
-}
+// Import routes
+import authRoutes from './routes/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,16 +24,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
 });
-
-// Import routes
-import authRoutes from './routes/auth';
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -44,12 +39,12 @@ app.use('/api/auth', authRoutes);
 // app.use('/api/licenses', licenseRoutes);
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Error handling middleware
-app.use((err: ApiError, req: express.Request, res: express.Response) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   
   const status = err.status || 500;
@@ -61,9 +56,18 @@ app.use((err: ApiError, req: express.Request, res: express.Response) => {
   });
 });
 
-app.listen(PORT, () => {
+// Start server
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📡 Health check available at http://localhost:${PORT}/api/health`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+  });
 });
 
 export default app;
