@@ -1,11 +1,15 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Package, Settings } from 'lucide-react';
+import { Home, Package, Settings, Shield } from 'lucide-react';
 
 export default function Sidebar() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'ADMIN' || user.role === 'MANAGER';
+
   const links = [
     { to: '/', icon: Home, label: 'Dashboard' },
     { to: '/catalog', icon: Package, label: 'Software' },
+    ...(isAdmin ? [{ to: '/admin', icon: Shield, label: 'Admin' }] : []),
     { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 

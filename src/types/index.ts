@@ -84,6 +84,17 @@ export interface LicenseRequest {
     justification: string;
     createdAt: string;
     software?: Software;
+    user?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        manager?: {
+            id: string;
+            firstName: string;
+            lastName: string;
+        };
+    };
     approvals?: Approval[];
 }
 

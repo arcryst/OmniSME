@@ -126,4 +126,45 @@ export const licenseApi = {
     const { data } = await apiClient.put(`/licenses/${id}/return`);
     return data.license;
   },
+};
+
+// Admin API
+export const adminApi = {
+  getPendingApprovals: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<LicenseRequest>> => {
+    const { data } = await apiClient.get('/requests/pending-approvals', { params });
+    return data;
+  },
+
+  getLicenseStats: async () => {
+    const { data } = await apiClient.get('/licenses/stats');
+    return data;
+  },
+
+  approveRequest: async (requestId: string, comments?: string) => {
+    const { data } = await apiClient.put(`/requests/${requestId}/approve`, { comments });
+    return data;
+  },
+
+  rejectRequest: async (requestId: string, comments: string) => {
+    const { data } = await apiClient.put(`/requests/${requestId}/reject`, { comments });
+    return data;
+  },
+
+  createSoftware: async (softwareData: Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count'>) => {
+    const { data } = await apiClient.post('/software', softwareData);
+    return data;
+  },
+
+  updateSoftware: async (id: string, softwareData: Partial<Software>) => {
+    const { data } = await apiClient.put(`/software/${id}`, softwareData);
+    return data;
+  },
+
+  deleteSoftware: async (id: string) => {
+    const { data } = await apiClient.delete(`/software/${id}`);
+    return data;
+  },
 };  

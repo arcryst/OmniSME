@@ -86,9 +86,27 @@ router.post('/register',
         user: result.user,
         organization: result.organization,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
-      res.status(500).json({ error: 'Registration failed' });
+      
+      // More specific error handling
+      if (error instanceof Error) {
+        if (error.message.includes('connect ECONNREFUSED')) {
+          res.status(500).json({ error: 'Database connection failed. Please check your database configuration.' });
+          return;
+        }
+        if (error.message.includes('prisma')) {
+          res.status(500).json({ error: 'Database error. Please ensure the database is properly set up and migrations are run.' });
+          return;
+        }
+        
+        res.status(500).json({ 
+          error: 'Registration failed',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      } else {
+        res.status(500).json({ error: 'An unexpected error occurred during registration' });
+      }
     }
   }
 );

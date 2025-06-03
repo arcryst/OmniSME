@@ -13,20 +13,50 @@ export default function Register() {
     organizationName: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
     try {
-      await authApi.register(formData);
+      // Validate password length
+      if (formData.password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      console.log('Attempting registration with:', { ...formData, password: '[REDACTED]' });
+      const response = await authApi.register(formData);
+      console.log('Registration successful:', response);
+      
       toast.success('Registration successful!');
       navigate('/');
     } catch (error) {
-      const axiosError = error as AxiosError<{ error: string }>;
-      const message = axiosError.response?.data?.error || 'Registration failed';
-      toast.error(message);
+      console.error('Registration error:', error);
+      
+      if (error instanceof Error) {
+        // Handle standard errors
+        setError(error.message);
+        toast.error(error.message);
+      } else if (error && typeof error === 'object' && 'response' in error) {
+        // Handle API errors
+        const axiosError = error as AxiosError<{ error: string }>;
+        const message = axiosError.response?.data?.error || 'Registration failed';
+        setError(message);
+        toast.error(message);
+      } else {
+        // Handle unknown errors
+        setError('Registration failed. Please try again.');
+        toast.error('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -37,6 +67,8 @@ export default function Register() {
       ...prev,
       [e.target.name]: e.target.value
     }));
+    // Clear error when user starts typing
+    setError(null);
   };
 
   return (
@@ -53,6 +85,24 @@ export default function Register() {
             </Link>
           </p>
         </div>
+        
+        {error && (
+          <div className="rounded-md bg-red-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  {error}
+                </h3>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
@@ -109,6 +159,7 @@ export default function Register() {
                 value={formData.password}
                 onChange={handleChange}
                 disabled={isLoading}
+                minLength={8}
               />
             </div>
             <div>

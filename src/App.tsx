@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Catalog from './pages/catalog/Catalog';
+import Admin from './pages/admin/Admin';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Settings from './pages/Settings';
@@ -28,6 +29,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Admin Route component
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAuthenticated = localStorage.getItem('authToken');
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+    return <Navigate to="/" replace />;
   }
   
   return <>{children}</>;
@@ -73,6 +90,14 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="catalog" element={<Catalog />} />
+            <Route 
+              path="admin" 
+              element={
+                <AdminRoute>
+                  <Admin />
+                </AdminRoute>
+              } 
+            />
             <Route path="settings" element={<Settings />} />
           </Route>
           

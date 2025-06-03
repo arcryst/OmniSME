@@ -7,10 +7,11 @@ dist/
 build/
 
 # Environment variables
-.env
-.env.local
-.env.production
-api/.env
+
+ .env
+ .env.local
+ .env.production
+ api/.env
 
 # Database
 *.db
