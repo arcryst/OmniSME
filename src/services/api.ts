@@ -174,6 +174,11 @@ export const adminApi = {
     return data;
   },
 
+  createUser: async (userData: Omit<User, 'id' | 'manager' | 'licenses' | '_count' | 'createdAt'>) => {
+    const { data } = await apiClient.post('/users', userData);
+    return data;
+  },
+
   updateUser: async (id: string, userData: Partial<User>) => {
     const { data } = await apiClient.put(`/users/${id}`, userData);
     return data;

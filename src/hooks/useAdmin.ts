@@ -32,6 +32,17 @@ export function useUsers() {
   });
 }
 
+// Get managers
+export function useManagers() {
+  return useQuery({
+    queryKey: [...adminKeys.users(), 'managers'],
+    queryFn: async () => {
+      const data = await adminApi.getUsers();
+      return data.filter((user: User) => user.role === 'MANAGER' || user.role === 'ADMIN');
+    },
+  });
+}
+
 // Update user
 export function useUpdateUser() {
   const queryClient = useQueryClient();
@@ -232,6 +243,24 @@ export function useDeleteSoftware() {
     },
     onError: (error: AxiosError<ErrorResponse>) => {
       const message = error.response?.data?.error || 'Failed to delete software';
+      toast.error(message);
+    },
+  });
+}
+
+// Create user
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userData: Omit<User, 'id' | 'manager' | 'licenses' | '_count' | 'createdAt'>) =>
+      adminApi.createUser(userData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+      toast.success('User created successfully');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.error || 'Failed to create user';
       toast.error(message);
     },
   });
