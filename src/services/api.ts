@@ -1,12 +1,10 @@
-/// <reference types="vite/client" />
-
 import axios from 'axios';
-import { PaginatedResponse, Software, LicenseRequest, CreateLicenseRequestData } from '../types';
+import { PaginatedResponse, Software, LicenseRequest, CreateLicenseRequestData, License, User, RegisterData } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Create axios instance
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -16,11 +14,8 @@ const apiClient = axios.create({
 // Add auth token to requests
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
-  if (!config.headers) {
-    config.headers = {};
-  }
   if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -39,6 +34,38 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Auth API
+export const authApi = {
+  login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
+    const { data } = await apiClient.post('/auth/login', { email, password });
+    // Store token and user data
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    return data;
+  },
+
+  register: async (registerData: RegisterData): Promise<{ token: string; user: User }> => {
+    const { data } = await apiClient.post('/auth/register', registerData);
+    // Store token and user data
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    return data;
+  },
+
+  logout: () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  },
+
+  getCurrentUser: async (): Promise<User> => {
+    const { data } = await apiClient.get('/auth/me');
+    // Update stored user data
+    localStorage.setItem('user', JSON.stringify(data));
+    return data;
+  },
+};
+
 // Software API
 export const softwareApi = {
   getAll: async (params?: {
@@ -47,17 +74,17 @@ export const softwareApi = {
     search?: string;
     category?: string;
   }): Promise<PaginatedResponse<Software>> => {
-    const { data } = await apiClient.get<PaginatedResponse<Software>>('/software', { params });
+    const { data } = await apiClient.get('/software', { params });
     return data;
   },
 
   getById: async (id: string): Promise<Software> => {
-    const { data } = await apiClient.get<Software>(`/software/${id}`);
+    const { data } = await apiClient.get(`/software/${id}`);
     return data;
   },
 
   getCategories: async (): Promise<string[]> => {
-    const { data } = await apiClient.get<string[]>('/software/meta/categories');
+    const { data } = await apiClient.get('/software/meta/categories');
     return data;
   },
 };
@@ -65,8 +92,8 @@ export const softwareApi = {
 // License Request API
 export const requestApi = {
   create: async (data: CreateLicenseRequestData): Promise<LicenseRequest> => {
-    const { data: responseData } = await apiClient.post<LicenseRequest>('/requests', data);
-    return responseData;
+    const response = await apiClient.post('/requests', data);
+    return response.data;
   },
 
   getMyRequests: async (params?: {
@@ -74,14 +101,29 @@ export const requestApi = {
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<LicenseRequest>> => {
-    const { data } = await apiClient.get<PaginatedResponse<LicenseRequest>>('/requests/my-requests', { params });
+    const { data } = await apiClient.get('/requests/my-requests', { params });
     return data;
   },
 
   cancel: async (id: string): Promise<LicenseRequest> => {
-    const { data } = await apiClient.put<{ request: LicenseRequest }>(`/requests/${id}/cancel`);
+    const { data } = await apiClient.put(`/requests/${id}/cancel`);
     return data.request;
   },
 };
 
-export default apiClient;   
+// License API
+export const licenseApi = {
+  getMyLicenses: async (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<License>> => {
+    const { data } = await apiClient.get('/licenses/my-licenses', { params });
+    return data;
+  },
+
+  returnLicense: async (id: string): Promise<License> => {
+    const { data } = await apiClient.put(`/licenses/${id}/return`);
+    return data.license;
+  },
+};  
