@@ -4,8 +4,20 @@ export interface User {
     email: string;
     firstName: string;
     lastName: string;
-    role: string;
+    role: 'ADMIN' | 'MANAGER' | 'USER';
     organizationId: string;
+    organization?: Organization;
+    createdAt: string;
+    manager?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+    };
+    _count?: {
+        licenses: number;
+        managedUsers: number;
+    };
 }
 
 export interface Organization {

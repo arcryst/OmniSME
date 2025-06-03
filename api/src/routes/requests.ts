@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { body, query, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, LicenseStatus } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth';
 
 const router = express.Router();
@@ -47,7 +47,7 @@ router.post('/',
         where: {
           userId: req.user!.userId,
           softwareId,
-          status: 'ACTIVE',
+          status: LicenseStatus.ACTIVE,
         }
       });
 

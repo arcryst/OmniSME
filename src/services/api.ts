@@ -167,4 +167,36 @@ export const adminApi = {
     const { data } = await apiClient.delete(`/software/${id}`);
     return data;
   },
+
+  // User Management
+  getUsers: async () => {
+    const { data } = await apiClient.get('/users');
+    return data;
+  },
+
+  updateUser: async (id: string, userData: Partial<User>) => {
+    const { data } = await apiClient.put(`/users/${id}`, userData);
+    return data;
+  },
+
+  deleteUser: async (id: string) => {
+    const { data } = await apiClient.delete(`/users/${id}`);
+    return data;
+  },
+
+  // User License Management
+  getUserLicenses: async (userId: string): Promise<License[]> => {
+    const { data } = await apiClient.get(`/users/${userId}/licenses`);
+    return data;
+  },
+
+  addUserLicense: async (userId: string, softwareId: string) => {
+    const { data } = await apiClient.post(`/users/${userId}/licenses`, { softwareId });
+    return data;
+  },
+
+  removeUserLicense: async (userId: string, licenseId: string) => {
+    const { data } = await apiClient.delete(`/users/${userId}/licenses/${licenseId}`);
+    return data;
+  },
 };  

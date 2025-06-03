@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { AxiosError } from 'axios';
-import { Software } from '../types';
+import { Software, User } from '../types';
 
 interface PaginationParams {
   page?: number;
@@ -16,10 +16,111 @@ interface ErrorResponse {
 // Query keys
 export const adminKeys = {
   all: ['admin'] as const,
+  users: () => [...adminKeys.all, 'users'] as const,
+  user: (id: string) => [...adminKeys.users(), id] as const,
+  userLicenses: (userId: string) => [...adminKeys.user(userId), 'licenses'] as const,
   pendingApprovals: () => [...adminKeys.all, 'pending-approvals'] as const,
   pendingApproval: (params: PaginationParams) => [...adminKeys.pendingApprovals(), params] as const,
   stats: () => [...adminKeys.all, 'stats'] as const,
 };
+
+// Get users
+export function useUsers() {
+  return useQuery({
+    queryKey: adminKeys.users(),
+    queryFn: () => adminApi.getUsers(),
+  });
+}
+
+// Update user
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) =>
+      adminApi.updateUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+      toast.success('User updated successfully');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.error || 'Failed to update user';
+      toast.error(message);
+    },
+  });
+}
+
+// Delete user
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+      toast.success('User deleted successfully');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.error || 'Failed to delete user';
+      toast.error(message);
+    },
+  });
+}
+
+// Get user licenses
+export function useUserLicenses(userId: string) {
+  return useQuery({
+    queryKey: adminKeys.userLicenses(userId),
+    queryFn: () => adminApi.getUserLicenses(userId),
+    enabled: !!userId,
+  });
+}
+
+// Add license to user
+export function useAddUserLicense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, softwareId }: { userId: string; softwareId: string }) =>
+      adminApi.addUserLicense(userId, softwareId),
+    onSuccess: (_, { userId }) => {
+      // Invalidate user licenses
+      queryClient.invalidateQueries({ queryKey: adminKeys.userLicenses(userId) });
+      // Invalidate user list to update license count
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+      // Invalidate software list to update license counts
+      queryClient.invalidateQueries({ queryKey: ['software'] });
+      toast.success('License added successfully');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.error || 'Failed to add license';
+      toast.error(message);
+    },
+  });
+}
+
+// Remove license from user
+export function useRemoveUserLicense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, licenseId }: { userId: string; licenseId: string }) =>
+      adminApi.removeUserLicense(userId, licenseId),
+    onSuccess: (_, { userId }) => {
+      // Invalidate user licenses
+      queryClient.invalidateQueries({ queryKey: adminKeys.userLicenses(userId) });
+      // Invalidate user list to update license count
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+      // Invalidate software list to update license counts
+      queryClient.invalidateQueries({ queryKey: ['software'] });
+      toast.success('License deactivated successfully');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.error || 'Failed to deactivate license';
+      toast.error(message);
+    },
+  });
+}
 
 // Get pending approvals
 export function usePendingApprovals(params?: PaginationParams) {
