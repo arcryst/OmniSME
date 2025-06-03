@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, Clock, Users, Shield } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import AdminStats from '../../components/admin/AdminStats';
 import PendingApprovals from '../../components/admin/PendingApprovals';
 import SoftwareManagement from '../../components/admin/SoftwareManagement';
@@ -7,8 +8,23 @@ import UserManagement from '../../components/admin/UserManagement';
 
 type TabType = 'overview' | 'approvals' | 'software' | 'users';
 
+interface LocationState {
+  activeTab?: TabType;
+}
+
 export default function Admin() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  // Update active tab when navigating to the page with state
+  useEffect(() => {
+    const state = location.state as LocationState;
+    if (state?.activeTab) {
+      setActiveTab(state.activeTab);
+      // Clear the state after using it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: Package },

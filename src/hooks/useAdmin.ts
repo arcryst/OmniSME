@@ -83,13 +83,17 @@ export function useAddUserLicense() {
   return useMutation({
     mutationFn: ({ userId, softwareId }: { userId: string; softwareId: string }) =>
       adminApi.addUserLicense(userId, softwareId),
-    onSuccess: (_, { userId }) => {
-      // Invalidate user licenses
+    onSuccess: (_, { userId, softwareId }) => {
+      // Invalidate specific software query to trigger immediate refetch
+      queryClient.invalidateQueries({ queryKey: ['software', 'detail', softwareId] });
+      // Invalidate software list
+      queryClient.invalidateQueries({ queryKey: ['software', 'list'] });
+      // Invalidate user-specific queries
       queryClient.invalidateQueries({ queryKey: adminKeys.userLicenses(userId) });
-      // Invalidate user list to update license count
+      queryClient.invalidateQueries({ queryKey: adminKeys.user(userId) });
       queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-      // Invalidate software list to update license counts
-      queryClient.invalidateQueries({ queryKey: ['software'] });
+      // Invalidate admin stats
+      queryClient.invalidateQueries({ queryKey: adminKeys.stats() });
       toast.success('License added successfully');
     },
     onError: (error: AxiosError<ErrorResponse>) => {
@@ -104,15 +108,19 @@ export function useRemoveUserLicense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, licenseId }: { userId: string; licenseId: string }) =>
+    mutationFn: ({ userId, licenseId, softwareId }: { userId: string; licenseId: string; softwareId: string }) =>
       adminApi.removeUserLicense(userId, licenseId),
-    onSuccess: (_, { userId }) => {
-      // Invalidate user licenses
+    onSuccess: (_, { userId, softwareId }) => {
+      // Invalidate specific software query to trigger immediate refetch
+      queryClient.invalidateQueries({ queryKey: ['software', 'detail', softwareId] });
+      // Invalidate software list
+      queryClient.invalidateQueries({ queryKey: ['software', 'list'] });
+      // Invalidate user-specific queries
       queryClient.invalidateQueries({ queryKey: adminKeys.userLicenses(userId) });
-      // Invalidate user list to update license count
+      queryClient.invalidateQueries({ queryKey: adminKeys.user(userId) });
       queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-      // Invalidate software list to update license counts
-      queryClient.invalidateQueries({ queryKey: ['software'] });
+      // Invalidate admin stats
+      queryClient.invalidateQueries({ queryKey: adminKeys.stats() });
       toast.success('License deactivated successfully');
     },
     onError: (error: AxiosError<ErrorResponse>) => {
@@ -181,7 +189,7 @@ export function useCreateSoftware() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (softwareData: Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count'>) => 
+    mutationFn: (softwareData: Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count' | 'createdAt'>) => 
       adminApi.createSoftware(softwareData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['software'] });
@@ -199,7 +207,7 @@ export function useUpdateSoftware() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Software> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count' | 'createdAt'>> }) =>
       adminApi.updateSoftware(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['software'] });

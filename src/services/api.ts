@@ -153,12 +153,12 @@ export const adminApi = {
     return data;
   },
 
-  createSoftware: async (softwareData: Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count'>) => {
+  createSoftware: async (softwareData: Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count' | 'createdAt'>) => {
     const { data } = await apiClient.post('/software', softwareData);
     return data;
   },
 
-  updateSoftware: async (id: string, softwareData: Partial<Software>) => {
+  updateSoftware: async (id: string, softwareData: Partial<Omit<Software, 'id' | 'userLicense' | 'hasPendingRequest' | '_count' | 'createdAt'>>) => {
     const { data } = await apiClient.put(`/software/${id}`, softwareData);
     return data;
   },
@@ -196,7 +196,7 @@ export const adminApi = {
   },
 
   removeUserLicense: async (userId: string, licenseId: string) => {
-    const { data } = await apiClient.delete(`/users/${userId}/licenses/${licenseId}`);
+    const { data } = await apiClient.put(`/licenses/${licenseId}/revoke`);
     return data;
   },
 };  

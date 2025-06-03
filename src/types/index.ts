@@ -8,12 +8,10 @@ export interface User {
     organizationId: string;
     organization?: Organization;
     createdAt: string;
-    manager?: {
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-    };
+    updatedAt: string;
+    managerId?: string;
+    manager?: User;
+    licenses?: License[];
     _count?: {
         licenses: number;
         managedUsers: number;
@@ -64,12 +62,15 @@ export interface Software {
     websiteUrl?: string;
     requiresApproval: boolean;
     autoProvision: boolean;
+    maxLicenses?: number;
+    createdAt: string;
     organizationId: string;
     userLicense?: License | null;
     hasPendingRequest?: boolean;
+    licenses?: License[];
     _count?: {
-        licenses: number;
-        requests: number;
+        licenses?: number;
+        requests?: number;
     };
 }
 
@@ -84,6 +85,12 @@ export interface License {
     lastUsedAt?: string;
     notes?: string;
     software?: Software;
+    user?: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+    };
 }
 
 export interface LicenseRequest {

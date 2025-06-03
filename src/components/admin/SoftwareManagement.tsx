@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Package } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Package, Users, ArrowUpDown, Search, Filter } from 'lucide-react';
 import { useSoftware, useSoftwareCategories } from '../../hooks/useSoftware';
-import { useCreateSoftware, useUpdateSoftware, useDeleteSoftware } from '../../hooks/useAdmin';
+import { useCreateSoftware, useUpdateSoftware, useDeleteSoftware, useAddUserLicense, useRemoveUserLicense } from '../../hooks/useAdmin';
 import { Software } from '../../types';
+import SoftwareLicenseManagement from './SoftwareLicenseManagement';
+import { softwareApi } from '../../services/api';
+import { Link } from 'react-router-dom';
 
 interface SoftwareFormData {
   name: string;
@@ -15,11 +18,21 @@ interface SoftwareFormData {
   websiteUrl: string;
   requiresApproval: boolean;
   autoProvision: boolean;
+  maxLicenses: string;
+}
+
+type SortField = 'name' | 'category' | 'vendor' | 'costPerLicense' | 'licenses' | 'maxLicenses' | 'availableLicenses';
+type SortOrder = 'asc' | 'desc';
+
+interface SortConfig {
+  field: SortField;
+  order: SortOrder;
 }
 
 export default function SoftwareManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingSoftware, setEditingSoftware] = useState<Software | null>(null);
+  const [managingLicenses, setManagingLicenses] = useState<Software | null>(null);
   const [formData, setFormData] = useState<SoftwareFormData>({
     name: '',
     description: '',
@@ -31,6 +44,12 @@ export default function SoftwareManagement() {
     websiteUrl: '',
     requiresApproval: true,
     autoProvision: false,
+    maxLicenses: '',
+  });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'name', order: 'asc' });
+  const [filters, setFilters] = useState({
+    search: '',
+    category: '',
   });
 
   const { data, isLoading } = useSoftware({ limit: 100 });
@@ -38,18 +57,25 @@ export default function SoftwareManagement() {
   const createSoftware = useCreateSoftware();
   const updateSoftware = useUpdateSoftware();
   const deleteSoftware = useDeleteSoftware();
+  const addLicense = useAddUserLicense();
+  const removeLicense = useRemoveUserLicense();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const payload = {
-      ...formData,
-      organizationId: JSON.parse(localStorage.getItem('user') || '{}').organizationId,
-      costPerLicense: formData.costPerLicense ? parseFloat(formData.costPerLicense) : undefined,
+      name: formData.name,
       description: formData.description || undefined,
+      category: formData.category,
       vendor: formData.vendor || undefined,
+      costPerLicense: formData.costPerLicense ? parseFloat(formData.costPerLicense) : undefined,
+      billingCycle: formData.billingCycle,
       logoUrl: formData.logoUrl || undefined,
       websiteUrl: formData.websiteUrl || undefined,
+      requiresApproval: formData.requiresApproval,
+      autoProvision: formData.autoProvision,
+      maxLicenses: formData.maxLicenses ? parseInt(formData.maxLicenses) : undefined,
+      organizationId: JSON.parse(localStorage.getItem('user') || '{}').organizationId,
     };
 
     try {
@@ -74,6 +100,7 @@ export default function SoftwareManagement() {
         websiteUrl: '',
         requiresApproval: true,
         autoProvision: false,
+        maxLicenses: '',
       });
       setShowForm(false);
       setEditingSoftware(null);
@@ -95,6 +122,7 @@ export default function SoftwareManagement() {
       websiteUrl: software.websiteUrl || '',
       requiresApproval: software.requiresApproval,
       autoProvision: software.autoProvision,
+      maxLicenses: software.maxLicenses?.toString() || '',
     });
     setShowForm(true);
   };
@@ -117,10 +145,123 @@ export default function SoftwareManagement() {
       websiteUrl: '',
       requiresApproval: true,
       autoProvision: false,
+      maxLicenses: '',
     });
     setShowForm(false);
     setEditingSoftware(null);
   };
+
+  const handleManageLicenses = async (software: Software) => {
+    setManagingLicenses(software);
+  };
+
+  const handleAddLicense = async (userId: string) => {
+    if (!managingLicenses) return;
+    
+    try {
+      await addLicense.mutateAsync({
+        userId,
+        softwareId: managingLicenses.id,
+      });
+      
+      // Refetch the software details to update the licenses list
+      const updatedSoftware = await softwareApi.getById(managingLicenses.id);
+      setManagingLicenses(updatedSoftware);
+    } catch (error) {
+      // Error handled by mutation hook
+    }
+  };
+
+  const handleRemoveLicense = async (licenseId: string) => {
+    if (!managingLicenses) return;
+    
+    try {
+      await removeLicense.mutateAsync({
+        userId: '', // Not needed for removal
+        licenseId,
+        softwareId: managingLicenses.id,
+      });
+      
+      // Refetch the software details to update the licenses list
+      const updatedSoftware = await softwareApi.getById(managingLicenses.id);
+      setManagingLicenses(updatedSoftware);
+    } catch (error) {
+      // Error handled by mutation hook
+    }
+  };
+
+  const handleSort = (field: SortField) => {
+    setSortConfig(current => ({
+      field,
+      order: current.field === field && current.order === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const sortedSoftware = useMemo(() => {
+    if (!data?.items) return [];
+    
+    const items = [...data.items];
+    const { field, order } = sortConfig;
+
+    return items.sort((a, b) => {
+      let comparison = 0;
+      let aAvailable: number;
+      let bAvailable: number;
+      
+      switch (field) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'category':
+          comparison = a.category.localeCompare(b.category);
+          break;
+        case 'vendor':
+          comparison = (a.vendor || '').localeCompare(b.vendor || '');
+          break;
+        case 'costPerLicense':
+          comparison = (a.costPerLicense || 0) - (b.costPerLicense || 0);
+          break;
+        case 'licenses':
+          comparison = (a._count?.licenses || 0) - (b._count?.licenses || 0);
+          break;
+        case 'maxLicenses':
+          comparison = (a.maxLicenses || Infinity) - (b.maxLicenses || Infinity);
+          break;
+        case 'availableLicenses':
+          aAvailable = a.maxLicenses ? a.maxLicenses - (a._count?.licenses || 0) : Infinity;
+          bAvailable = b.maxLicenses ? b.maxLicenses - (b._count?.licenses || 0) : Infinity;
+          comparison = aAvailable - bAvailable;
+          break;
+      }
+
+      return order === 'asc' ? comparison : -comparison;
+    });
+  }, [data?.items, sortConfig]);
+
+  const filteredSoftware = useMemo(() => {
+    if (!sortedSoftware) return [];
+
+    return sortedSoftware.filter(item => {
+      const matchesSearch = filters.search === '' || 
+        item.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.vendor?.toLowerCase().includes(filters.search.toLowerCase());
+
+      const matchesCategory = filters.category === '' || item.category === filters.category;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [sortedSoftware, filters]);
+
+  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900"
+    >
+      {label}
+      <ArrowUpDown className={`w-4 h-4 ${sortConfig.field === field ? 'text-indigo-600' : 'text-gray-400'}`} />
+    </button>
+  );
 
   if (isLoading) {
     return (
@@ -136,8 +277,6 @@ export default function SoftwareManagement() {
       </div>
     );
   }
-
-  const software = data?.items || [];
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
@@ -297,6 +436,20 @@ export default function SoftwareManagement() {
               </label>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Maximum Licenses
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.maxLicenses}
+                onChange={(e) => setFormData({ ...formData, maxLicenses: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Leave blank for unlimited"
+              />
+            </div>
+
             <div className="md:col-span-2 flex gap-3">
               <button
                 type="button"
@@ -321,64 +474,187 @@ export default function SoftwareManagement() {
         </div>
       )}
 
-      <div className="divide-y divide-gray-200">
-        {software.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">
-            <p>No software added yet.</p>
-          </div>
-        ) : (
-          software.map((item) => (
-            <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {item.logoUrl ? (
-                    <img
-                      src={item.logoUrl}
-                      alt={`${item.name} logo`}
-                      className="w-10 h-10 rounded-lg object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=6366f1&color=fff`;
-                      }}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                      <span className="text-indigo-600 font-semibold">
-                        {item.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-medium text-gray-900">{item.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      {item.category} • {item.vendor || 'No vendor'} • 
-                      {item.costPerLicense ? ` $${item.costPerLicense}/${(item.billingCycle || 'MONTHLY').toLowerCase()}` : ' Free'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    {item._count?.licenses || 0} licenses
-                  </span>
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    disabled={deleteSoftware.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+      {/* Filters */}
+      <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search software..."
+                value={filters.search}
+                onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
-          ))
-        )}
+          </div>
+          <div className="w-48">
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters(f => ({ ...f, category: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="name" label="Software" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="category" label="Category" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="vendor" label="Vendor" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="costPerLicense" label="Cost" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="licenses" label="Active Licenses" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="maxLicenses" label="Max Licenses" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="availableLicenses" label="Available" />
+              </th>
+              <th className="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredSoftware.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  No software found matching your criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredSoftware.map((item) => {
+                const activeLicenses = item._count?.licenses || 0;
+                const maxLicenses = item.maxLicenses;
+                const availableLicenses = maxLicenses ? maxLicenses - activeLicenses : undefined;
+
+                return (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        {item.logoUrl ? (
+                          <img
+                            src={item.logoUrl}
+                            alt={`${item.name} logo`}
+                            className="w-8 h-8 rounded-lg object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=6366f1&color=fff`;
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                            <span className="text-indigo-600 font-semibold">
+                              {item.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <Link 
+                            to={`/admin/software/${item.id}`}
+                            className="font-medium text-gray-900 hover:text-indigo-600"
+                          >
+                            {item.name}
+                          </Link>
+                          {item.description && (
+                            <div className="text-sm text-gray-500 truncate max-w-xs">
+                              {item.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {item.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {item.vendor || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {item.costPerLicense ? (
+                        <span>
+                          ${item.costPerLicense}
+                          <span className="text-xs text-gray-400">
+                            /{item.billingCycle?.toLowerCase() || 'month'}
+                          </span>
+                        </span>
+                      ) : (
+                        'Free'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {activeLicenses}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {maxLicenses || '∞'}
+                    </td>
+                    <td className="px-6 py-4">
+                      {availableLicenses !== undefined ? (
+                        <span className={availableLicenses === 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                          {availableLicenses}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">∞</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleManageLicenses(item)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span className="hidden sm:inline">Manage</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          disabled={deleteSoftware.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* License Management Modal */}
+      {managingLicenses && (
+        <SoftwareLicenseManagement
+          softwareId={managingLicenses.id}
+          softwareName={managingLicenses.name}
+          onClose={() => setManagingLicenses(null)}
+          licenses={managingLicenses.licenses || []}
+          onAddLicense={handleAddLicense}
+          onRemoveLicense={handleRemoveLicense}
+        />
+      )}
     </div>
   );
 }

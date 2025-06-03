@@ -42,6 +42,12 @@ router.get('/',
               lastName: true,
             }
           },
+          licenses: {
+            where: { status: LicenseStatus.ACTIVE },
+            include: {
+              software: true
+            }
+          },
           _count: {
             select: {
               licenses: {

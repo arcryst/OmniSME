@@ -7,6 +7,8 @@ import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Catalog from './pages/catalog/Catalog';
 import Admin from './pages/admin/Admin';
+import SoftwareDetails from './pages/admin/SoftwareDetails';
+import UserDetails from './pages/admin/UserDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Settings from './pages/Settings';
@@ -95,6 +97,22 @@ export default function App() {
               element={
                 <AdminRoute>
                   <Admin />
+                </AdminRoute>
+              } 
+            />
+            <Route 
+              path="admin/software/:id" 
+              element={
+                <AdminRoute>
+                  <SoftwareDetails />
+                </AdminRoute>
+              } 
+            />
+            <Route 
+              path="admin/users/:id" 
+              element={
+                <AdminRoute>
+                  <UserDetails />
                 </AdminRoute>
               } 
             />

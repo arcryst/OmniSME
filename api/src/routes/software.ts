@@ -69,21 +69,25 @@ router.get('/',
         include: {
           licenses: {
             where: { 
-              userId: req.user!.userId,
               status: 'ACTIVE'
             },
-            select: {
-              id: true,
-              status: true,
-              assignedAt: true,
-              expiresAt: true,
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              assignedAt: 'desc'
             }
           },
           _count: {
             select: {
-              licenses: {
-                where: { status: 'ACTIVE' }
-              },
+              licenses: { where: { status: 'ACTIVE' } },
               requests: { where: { status: 'PENDING' } }
             }
           }
@@ -104,9 +108,8 @@ router.get('/',
       // Format response
       const formattedSoftware = software.map(item => ({
         ...item,
-        userLicense: item.licenses[0] || null,
+        userLicense: item.licenses.find(l => l.userId === req.user!.userId) || null,
         hasPendingRequest: pendingRequestSoftwareIds.has(item.id),
-        licenses: undefined, // Remove from response
       }));
 
       res.json({
@@ -136,15 +139,20 @@ router.get('/:id',
         include: {
           licenses: {
             where: { 
-              userId: req.user!.userId,
               status: 'ACTIVE'
             },
-            select: {
-              id: true,
-              status: true,
-              assignedAt: true,
-              expiresAt: true,
-              lastUsedAt: true,
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              assignedAt: 'desc'
             }
           },
           _count: {
@@ -170,11 +178,13 @@ router.get('/:id',
         }
       });
 
+      // Get user's license if they have one
+      const userLicense = software.licenses.find(l => l.userId === req.user!.userId);
+
       res.json({
         ...software,
-        userLicense: software.licenses[0] || null,
+        userLicense: userLicense || null,
         hasPendingRequest: !!pendingRequest,
-        licenses: undefined,
       });
     } catch (error) {
       console.error('Get software by ID error:', error);
@@ -198,6 +208,7 @@ router.post('/',
     body('websiteUrl').optional().isURL(),
     body('requiresApproval').optional().isBoolean(),
     body('autoProvision').optional().isBoolean(),
+    body('maxLicenses').optional().isInt({ min: 0 }),
   ],
   handleValidationErrors,
   async (req: Request, res: Response): Promise<void> => {
@@ -234,6 +245,7 @@ router.put('/:id',
     body('websiteUrl').optional().isURL(),
     body('requiresApproval').optional().isBoolean(),
     body('autoProvision').optional().isBoolean(),
+    body('maxLicenses').optional().isInt({ min: 0 }),
   ],
   handleValidationErrors,
   async (req: Request, res: Response): Promise<void> => {
@@ -250,9 +262,15 @@ router.put('/:id',
         return;
       }
 
+      // Handle maxLicenses field
+      const data = { ...req.body };
+      if (data.maxLicenses === '') {
+        data.maxLicenses = null;
+      }
+
       const updated = await prisma.software.update({
         where: { id: req.params.id },
-        data: req.body,
+        data,
       });
 
       res.json(updated);

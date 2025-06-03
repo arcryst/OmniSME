@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { Users, Edit2, Trash2, Shield, UserCheck, Plus, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, Edit2, Trash2, Shield, UserCheck, Plus, X, Search, ArrowUpDown, DollarSign } from 'lucide-react';
 import { useUsers, useUpdateUser, useDeleteUser, useUserLicenses, useAddUserLicense, useRemoveUserLicense, adminKeys } from '../../hooks/useAdmin';
 import { useSoftware } from '../../hooks/useSoftware';
 import { User, Software, License } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { calculateMonthlyLicenseCost } from '../../utils/license';
 
 interface EditUserFormData {
   firstName: string;
@@ -15,7 +17,16 @@ interface EditUserFormData {
   password?: string;
 }
 
+type SortField = 'name' | 'email' | 'role' | 'manager' | 'licenses' | 'cost';
+type SortOrder = 'asc' | 'desc';
+
+interface SortConfig {
+  field: SortField;
+  order: SortOrder;
+}
+
 export default function UserManagement() {
+  const navigate = useNavigate();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
@@ -27,6 +38,11 @@ export default function UserManagement() {
     role: 'USER',
     managerId: '',
     password: '',
+  });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'name', order: 'asc' });
+  const [filters, setFilters] = useState({
+    search: '',
+    role: '',
   });
 
   const { data: users, isLoading } = useUsers();
@@ -126,22 +142,80 @@ export default function UserManagement() {
   const handleRemoveLicense = async (license: License) => {
     if (!selectedUser) return;
 
-    if (window.confirm('Are you sure you want to deactivate this license?')) {
-      try {
-        await removeLicense.mutateAsync({
-          userId: selectedUser.id,
-          licenseId: license.id,
-        });
-        
-        // Refetch licenses after removal
-        await refetchLicenses();
-        // Also refetch users to update license count
-        await queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-      } catch (error) {
-        // Error handled by mutation hook
-      }
+    try {
+      await removeLicense.mutateAsync({
+        userId: selectedUser.id,
+        licenseId: license.id,
+        softwareId: license.softwareId,
+      });
+      
+      // Refetch licenses after removing
+      await refetchLicenses();
+    } catch (error) {
+      // Error handled by mutation hook
     }
   };
+
+  const handleSort = (field: SortField) => {
+    setSortConfig(current => ({
+      field,
+      order: current.field === field && current.order === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const sortedUsers = useMemo(() => {
+    if (!users) return [];
+    
+    const items = [...users];
+    const { field, order } = sortConfig;
+
+    return items.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (field) {
+        case 'name':
+          comparison = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          break;
+        case 'email':
+          comparison = a.email.localeCompare(b.email);
+          break;
+        case 'role':
+          comparison = a.role.localeCompare(b.role);
+          break;
+        case 'manager': {
+          const managerA = a.manager ? `${a.manager.firstName} ${a.manager.lastName}` : '';
+          const managerB = b.manager ? `${b.manager.firstName} ${b.manager.lastName}` : '';
+          comparison = managerA.localeCompare(managerB);
+          break;
+        }
+        case 'licenses':
+          comparison = (a._count?.licenses || 0) - (b._count?.licenses || 0);
+          break;
+        case 'cost': {
+          const costA = a.licenses && a.licenses.length > 0 ? calculateMonthlyLicenseCost(a.licenses) : 0;
+          const costB = b.licenses && b.licenses.length > 0 ? calculateMonthlyLicenseCost(b.licenses) : 0;
+          comparison = costA - costB;
+          break;
+        }
+      }
+
+      return order === 'asc' ? comparison : -comparison;
+    });
+  }, [users, sortConfig]);
+
+  const filteredUsers = useMemo(() => {
+    if (!sortedUsers) return [];
+
+    return sortedUsers.filter(user => {
+      const matchesSearch = filters.search === '' || 
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(filters.search.toLowerCase()) ||
+        user.email.toLowerCase().includes(filters.search.toLowerCase());
+
+      const matchesRole = filters.role === '' || user.role === filters.role;
+
+      return matchesSearch && matchesRole;
+    });
+  }, [sortedUsers, filters]);
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -153,6 +227,16 @@ export default function UserManagement() {
         return null;
     }
   };
+
+  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900"
+    >
+      {label}
+      <ArrowUpDown className={`w-4 h-4 ${sortConfig.field === field ? 'text-indigo-600' : 'text-gray-400'}`} />
+    </button>
+  );
 
   if (isLoading) {
     return (
@@ -179,6 +263,116 @@ export default function UserManagement() {
           </div>
           <span className="text-sm text-gray-500">{users?.length || 0} users</span>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={filters.search}
+                onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+          </div>
+          <div className="w-48">
+            <select
+              value={filters.role}
+              onChange={(e) => setFilters(f => ({ ...f, role: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Roles</option>
+              <option value="USER">Users</option>
+              <option value="MANAGER">Managers</option>
+              <option value="ADMIN">Admins</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="name" label="Name" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="email" label="Email" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="role" label="Role" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="manager" label="Manager" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="licenses" label="Licenses" />
+              </th>
+              <th className="px-6 py-3 text-left">
+                <SortButton field="cost" label="Monthly Cost" />
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  No users found matching your criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredUsers.map((user) => (
+                <tr 
+                  key={user.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/admin/users/${user.id}`)}
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {user.firstName} {user.lastName}
+                      </span>
+                      {getRoleIcon(user.role)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {user.email}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      user.role === 'ADMIN' 
+                        ? 'bg-red-100 text-red-800' 
+                        : user.role === 'MANAGER'
+                        ? 'bg-indigo-100 text-indigo-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {user.manager ? `${user.manager.firstName} ${user.manager.lastName}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {user._count?.licenses || 0}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center text-gray-700">
+                      <DollarSign className="w-4 h-4 mr-1 text-gray-400" />
+                      {user.licenses && user.licenses.length > 0 ? calculateMonthlyLicenseCost(user.licenses).toFixed(2) : '0.00'}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {editingUser && (
@@ -295,71 +489,6 @@ export default function UserManagement() {
           </form>
         </div>
       )}
-
-      <div className="divide-y divide-gray-200">
-        {!users?.length ? (
-          <div className="p-6 text-center text-gray-500">
-            <p>No users found.</p>
-          </div>
-        ) : (
-          users.map((user: User) => (
-            <div key={user.id} className="p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900">
-                      {user.firstName} {user.lastName}
-                    </h3>
-                    {getRoleIcon(user.role)}
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                      {user.role}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    <p>{user.email}</p>
-                    {user.manager && (
-                      <p className="text-xs mt-0.5">
-                        Reports to: {user.manager.firstName} {user.manager.lastName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-400 mt-2">
-                    <span>
-                      Joined {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
-                    </span>
-                    <button
-                      onClick={() => handleViewLicenses(user)}
-                      className="text-indigo-600 hover:text-indigo-700"
-                    >
-                      {user._count?.licenses || 0} active licenses
-                    </button>
-                    {user._count?.managedUsers && user._count.managedUsers > 0 && (
-                      <span>{user._count.managedUsers} direct reports</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={() => handleEdit(user)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    disabled={updateUser.isPending || deleteUser.isPending}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(user)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    disabled={updateUser.isPending || deleteUser.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
 
       {/* License Management Modal */}
       {selectedUser && (

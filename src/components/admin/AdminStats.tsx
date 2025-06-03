@@ -29,10 +29,8 @@ export default function AdminStats() {
 
   const statsCards = [
     {
-      name: 'Total Licenses',
-      value: stats?.totalLicenses || 0,
-      change: stats?.activeLicenses || 0,
-      changeLabel: 'active',
+      name: 'Active Licenses',
+      value: stats?.activeLicenses || 0,
       icon: Package,
       color: 'text-blue-600 bg-blue-100',
     },
@@ -74,11 +72,6 @@ export default function AdminStats() {
                   <p className="text-sm font-medium text-gray-500">{stat.name}</p>
                   <div className="mt-1 flex items-baseline">
                     <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
-                    {stat.changeLabel && (
-                      <p className="ml-2 text-sm text-gray-500">
-                        ({stat.change} {stat.changeLabel})
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -95,27 +88,34 @@ export default function AdminStats() {
             Top Software by License Count
           </h3>
           <div className="space-y-3">
-            {stats.licensesBySoftware.slice(0, 5).map((item: SoftwareLicenseCount, index: number) => (
-              <div key={item.softwareId} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-500 w-6">#{index + 1}</span>
-                  <span className="text-sm text-gray-900">{item.softwareName}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-32 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-indigo-600 h-2 rounded-full"
-                      style={{
-                        width: `${(item.count / stats.activeLicenses) * 100}%`,
-                      }}
-                    />
+            {[...stats.licensesBySoftware]
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 5)
+              .map((item: SoftwareLicenseCount, index: number) => {
+              // Find the maximum count to calculate percentages
+              const maxCount = Math.max(...stats.licensesBySoftware.map((s: SoftwareLicenseCount) => s.count));
+              return (
+                <div key={item.softwareId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-500 w-6">#{index + 1}</span>
+                    <span className="text-sm text-gray-900">{item.softwareName}</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-700 w-12 text-right">
-                    {item.count}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full"
+                        style={{
+                          width: `${(item.count / maxCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 w-12 text-right">
+                      {item.count}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

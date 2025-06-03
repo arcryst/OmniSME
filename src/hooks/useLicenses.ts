@@ -55,6 +55,8 @@ export function useReturnLicense() {
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: licenseKeys.all });
       queryClient.invalidateQueries({ queryKey: softwareKeys.all });
+      // Invalidate admin queries
+      queryClient.invalidateQueries({ queryKey: ['admin'] });
       toast.success('License returned successfully');
     },
     onError: (error: AxiosError<{ error: string }>) => {
