@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { authApi } from '../services/api';
+import { toast } from 'react-hot-toast';
+import { AxiosError } from 'axios';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -9,12 +12,24 @@ export default function Register() {
     password: '',
     organizationName: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement registration logic
-    console.log('Register attempt:', formData);
+    setIsLoading(true);
+    
+    try {
+      await authApi.register(formData);
+      toast.success('Registration successful!');
+      navigate('/');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error: string }>;
+      const message = axiosError.response?.data?.error || 'Registration failed';
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,6 +66,7 @@ export default function Register() {
                 placeholder="First Name"
                 value={formData.firstName}
                 onChange={handleChange}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -64,6 +80,7 @@ export default function Register() {
                 placeholder="Last Name"
                 value={formData.lastName}
                 onChange={handleChange}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -77,6 +94,7 @@ export default function Register() {
                 placeholder="Email address"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -90,6 +108,7 @@ export default function Register() {
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -103,6 +122,7 @@ export default function Register() {
                 placeholder="Organization Name"
                 value={formData.organizationName}
                 onChange={handleChange}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -110,9 +130,10 @@ export default function Register() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+              disabled={isLoading}
             >
-              Create Account
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </div>
         </form>

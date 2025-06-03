@@ -56,87 +56,91 @@ router.post('/',
         return;
       }
 
-      // Check for pending request
-      const pendingRequest = await prisma.request.findFirst({
-        where: {
-          userId: req.user!.userId,
-          softwareId,
-          status: 'PENDING',
-        }
-      });
+      // Check for pending request - only if software requires approval
+      if (software.requiresApproval) {
+        const pendingRequest = await prisma.request.findFirst({
+          where: {
+            userId: req.user!.userId,
+            softwareId,
+            status: 'PENDING',
+          }
+        });
 
-      if (pendingRequest) {
-        res.status(400).json({ error: 'You already have a pending request for this software' });
-        return;
+        if (pendingRequest) {
+          res.status(400).json({ error: 'You already have a pending request for this software' });
+          return;
+        }
       }
 
       // Create the request
-      const request = await prisma.request.create({
-        data: {
-          userId: req.user!.userId,
-          softwareId,
-          organizationId: req.user!.organizationId,
-          justification,
-          priority,
-        },
-        include: {
-          software: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
+      try {
+        const request = await prisma.request.create({
+          data: {
+            userId: req.user!.userId,
+            softwareId,
+            organizationId: req.user!.organizationId,
+            justification,
+            priority,
+          },
+          include: {
+            software: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              }
             }
           }
-        }
-      });
-
-      // If software doesn't require approval, auto-approve
-      if (!software.requiresApproval) {
-        await prisma.$transaction(async (tx) => {
-          // Update request status
-          await tx.request.update({
-            where: { id: request.id },
-            data: { status: 'APPROVED' },
-          });
-
-          // Create approval record
-          await tx.approval.create({
-            data: {
-              requestId: request.id,
-              approverId: req.user!.userId,
-              status: 'APPROVED',
-              comments: 'Auto-approved - No approval required',
-            }
-          });
-
-          // Create license
-          await tx.license.create({
-            data: {
-              userId: req.user!.userId,
-              softwareId,
-              organizationId: req.user!.organizationId,
-              status: 'ACTIVE',
-            }
-          });
         });
+
+        // If software doesn't require approval, auto-approve
+        if (!software.requiresApproval) {
+          await prisma.$transaction(async (tx) => {
+            // Update request status
+            const updatedRequest = await tx.request.update({
+              where: { id: request.id },
+              data: { status: 'APPROVED' },
+            });
+
+            // Create approval record
+            await tx.approval.create({
+              data: {
+                requestId: request.id,
+                approverId: req.user!.userId,
+                status: 'APPROVED',
+                comments: 'Auto-approved - No approval required',
+              }
+            });
+
+            // Create license
+            const newLicense = await tx.license.create({
+              data: {
+                userId: req.user!.userId,
+                softwareId,
+                organizationId: req.user!.organizationId,
+                status: 'ACTIVE',
+              }
+            });
+
+            res.status(201).json({
+              ...updatedRequest,
+              license: newLicense,
+              message: 'Request auto-approved and license granted',
+            });
+          });
+          return;
+        }
 
         res.status(201).json({
           ...request,
-          status: 'APPROVED',
-          message: 'Request auto-approved and license granted',
+          message: 'Request submitted successfully',
         });
-        return;
+      } catch (error) {
+        console.error('Create request error:', error);
+        res.status(500).json({ error: 'Failed to create request. Please try again.' });
       }
-
-      // TODO: Send email notification to approvers
-      console.log(`New license request from ${request.user.email} for ${request.software.name}`);
-
-      res.status(201).json({
-        ...request,
-        message: 'Request submitted successfully',
-      });
     } catch (error) {
       console.error('Create request error:', error);
       res.status(500).json({ error: 'Failed to create request' });

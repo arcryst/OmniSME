@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { licenseApi, requestApi } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { AxiosError } from 'axios';
+import { softwareKeys } from './useSoftware';
 
 interface QueryParams {
   status?: string;
@@ -27,6 +28,9 @@ export function useMyLicenses(params?: QueryParams) {
   return useQuery({
     queryKey: licenseKeys.list(params),
     queryFn: () => licenseApi.getMyLicenses(params),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -35,6 +39,9 @@ export function useMyRequests(params?: QueryParams) {
   return useQuery({
     queryKey: requestKeys.list(params),
     queryFn: () => requestApi.getMyRequests(params),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -45,7 +52,9 @@ export function useReturnLicense() {
   return useMutation({
     mutationFn: (licenseId: string) => licenseApi.returnLicense(licenseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: licenseKeys.lists() });
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: licenseKeys.all });
+      queryClient.invalidateQueries({ queryKey: softwareKeys.all });
       toast.success('License returned successfully');
     },
     onError: (error: AxiosError<{ error: string }>) => {
@@ -62,7 +71,9 @@ export function useCancelRequest() {
   return useMutation({
     mutationFn: (requestId: string) => requestApi.cancel(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: requestKeys.lists() });
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: requestKeys.all });
+      queryClient.invalidateQueries({ queryKey: softwareKeys.all });
       toast.success('Request cancelled successfully');
     },
     onError: (error: AxiosError<{ error: string }>) => {

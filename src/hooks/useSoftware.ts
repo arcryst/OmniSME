@@ -25,7 +25,9 @@ export function useSoftware(params?: SoftwareParams) {
   return useQuery({
     queryKey: softwareKeys.list(params),
     queryFn: () => softwareApi.getAll(params),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 }
 
@@ -35,6 +37,9 @@ export function useSoftwareById(id: string) {
     queryKey: softwareKeys.detail(id),
     queryFn: () => softwareApi.getById(id),
     enabled: !!id,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -43,7 +48,7 @@ export function useSoftwareCategories() {
   return useQuery({
     queryKey: softwareKeys.categories(),
     queryFn: () => softwareApi.getCategories(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000, // Categories can be cached longer
   });
 }
 
@@ -54,8 +59,8 @@ export function useCreateLicenseRequest() {
   return useMutation({
     mutationFn: (data: CreateLicenseRequestData) => requestApi.create(data),
     onSuccess: (data) => {
-      // Invalidate software list to update pending request status
-      queryClient.invalidateQueries({ queryKey: softwareKeys.lists() });
+      // Invalidate all software-related queries
+      queryClient.invalidateQueries({ queryKey: softwareKeys.all });
       // Show success message
       toast.success(
         data.status === 'APPROVED' 

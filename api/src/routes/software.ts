@@ -68,7 +68,10 @@ router.get('/',
         orderBy: { name: 'asc' },
         include: {
           licenses: {
-            where: { userId: req.user!.userId },
+            where: { 
+              userId: req.user!.userId,
+              status: 'ACTIVE'
+            },
             select: {
               id: true,
               status: true,
@@ -78,7 +81,9 @@ router.get('/',
           },
           _count: {
             select: {
-              licenses: true,
+              licenses: {
+                where: { status: 'ACTIVE' }
+              },
               requests: { where: { status: 'PENDING' } }
             }
           }
@@ -130,7 +135,10 @@ router.get('/:id',
         },
         include: {
           licenses: {
-            where: { userId: req.user!.userId },
+            where: { 
+              userId: req.user!.userId,
+              status: 'ACTIVE'
+            },
             select: {
               id: true,
               status: true,

@@ -19,6 +19,33 @@ export default function SoftwareCard({ software, onRequestAccess }: SoftwareCard
     return `$${cost}${cycle}`;
   };
 
+  const getButtonState = () => {
+    if (hasAccess) {
+      return {
+        disabled: true,
+        className: "w-full flex items-center justify-center px-4 py-2 bg-green-50 text-green-700 rounded-lg cursor-not-allowed",
+        text: "You have access",
+        icon: <CheckCircle className="w-5 h-5 mr-2" />
+      };
+    }
+    if (hasPendingRequest) {
+      return {
+        disabled: true,
+        className: "w-full flex items-center justify-center px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg cursor-not-allowed",
+        text: "Request pending",
+        icon: <Clock className="w-5 h-5 mr-2" />
+      };
+    }
+    return {
+      disabled: false,
+      className: "w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium",
+      text: "Request Access",
+      icon: null
+    };
+  };
+
+  const buttonState = getButtonState();
+
   return (
     <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200">
       <div className="flex items-start justify-between mb-4">
@@ -78,30 +105,14 @@ export default function SoftwareCard({ software, onRequestAccess }: SoftwareCard
       </div>
 
       <div className="mt-4">
-        {hasAccess ? (
-          <button
-            disabled
-            className="w-full flex items-center justify-center px-4 py-2 bg-green-50 text-green-700 rounded-lg cursor-not-allowed"
-          >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            You have access
-          </button>
-        ) : hasPendingRequest ? (
-          <button
-            disabled
-            className="w-full flex items-center justify-center px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg cursor-not-allowed"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Request pending
-          </button>
-        ) : (
-          <button
-            onClick={() => onRequestAccess(software)}
-            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-          >
-            Request Access
-          </button>
-        )}
+        <button
+          onClick={() => !buttonState.disabled && onRequestAccess(software)}
+          className={buttonState.className}
+          disabled={buttonState.disabled}
+        >
+          {buttonState.icon}
+          {buttonState.text}
+        </button>
       </div>
 
       {software._count && (

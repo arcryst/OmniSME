@@ -72,7 +72,8 @@ model License {
   software       Software      @relation(fields: [softwareId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
 
-  @@unique([userId, softwareId])
+  @@index([userId, softwareId], name: "license_user_software_idx")
+  @@index([status], name: "license_status_idx")
 }
 
 model Request {
@@ -110,9 +111,7 @@ enum UserRole {
 
 enum LicenseStatus {
   ACTIVE
-  SUSPENDED
-  EXPIRED
-  REVOKED
+  INACTIVE
 }
 
 enum RequestStatus {

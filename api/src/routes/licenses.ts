@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { query, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, LicenseStatus } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth';
 
 const router = express.Router();
@@ -20,7 +20,7 @@ const handleValidationErrors = (req: Request, res: Response, next: express.NextF
 router.get('/my-licenses',
   authenticate,
   [
-    query('status').optional().isIn(['ACTIVE', 'SUSPENDED', 'EXPIRED', 'REVOKED']),
+    query('status').optional().isIn(['ACTIVE', 'INACTIVE']),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
@@ -37,7 +37,7 @@ router.get('/my-licenses',
       };
 
       if (status) {
-        where.status = status as 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
+        where.status = status as LicenseStatus;
       }
 
       const total = await prisma.license.count({ where });
@@ -155,14 +155,14 @@ router.put('/:id/revoke',
         return;
       }
 
-      if (license.status !== 'ACTIVE') {
+      if (license.status !== LicenseStatus.ACTIVE) {
         res.status(400).json({ error: 'License is not active' });
         return;
       }
 
       const updated = await prisma.license.update({
         where: { id: license.id },
-        data: { status: 'REVOKED' },
+        data: { status: LicenseStatus.INACTIVE },
       });
 
       // TODO: Send notification to user
@@ -188,7 +188,7 @@ router.put('/:id/return',
         where: {
           id: req.params.id,
           userId: req.user!.userId,
-          status: 'ACTIVE',
+          status: LicenseStatus.ACTIVE,
         },
         include: {
           software: true,
@@ -203,7 +203,7 @@ router.put('/:id/return',
       const updated = await prisma.license.update({
         where: { id: license.id },
         data: { 
-          status: 'REVOKED',
+          status: LicenseStatus.INACTIVE,
           notes: 'Returned by user',
         },
       });
